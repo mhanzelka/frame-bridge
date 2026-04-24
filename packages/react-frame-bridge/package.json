@@ -1,0 +1,39 @@
+{
+    "name": "@mhanzelka/react-frame-bridge",
+    "version": "0.1.0",
+    "description": "React hooks and provider for @mhanzelka/frame-bridge",
+    "author": "mhanzelka",
+    "license": "MIT",
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "files": ["dist"],
+    "scripts": {
+        "build": "vite build",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@mhanzelka/frame-bridge": "*"
+    },
+    "peerDependencies": {
+        "react": ">=19.0.0",
+        "react-dom": ">=19.0.0"
+    },
+    "devDependencies": {
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "@vitejs/plugin-react": "^5.0.1",
+        "fast-glob": "^3.3.3",
+        "rollup-preserve-directives": "^1.1.3",
+        "typescript": "^5.9.2",
+        "vite": "7.1.11",
+        "vite-plugin-dts": "^4.5.4",
+        "vite-tsconfig-paths": "^5.1.4"
+    }
+}
