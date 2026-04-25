@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Nav } from "@/shared/components/Nav";
 
 export const metadata: Metadata = {
     title: "frame-bridge — type-safe inter-window messaging",
@@ -13,7 +12,6 @@ type RootLayoutProps = { children: React.ReactNode };
 const RootLayout = ({ children }: RootLayoutProps) => (
     <html lang="en">
         <body className="bg-zinc-950 text-zinc-100 antialiased">
-            <Nav />
             {children}
         </body>
     </html>

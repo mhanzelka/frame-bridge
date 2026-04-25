@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Radio } from "lucide-react";
+import { ArrowRight, Radio, MessageSquare } from "lucide-react";
 
 const examples = [
     {
@@ -7,8 +7,17 @@ const examples = [
         icon: Radio,
         title: "BroadcastChannel",
         description:
-            "Two bridge instances on the same page — one as parent, one as child — communicating via BroadcastChannel. Same mechanism that works across separate tabs.",
-        tags: ["same-origin", "request/response", "events"],
+            "Parent page and child iframe communicating via BroadcastChannel. Same mechanism that works across separate browser tabs — no direct window reference needed.",
+        tags: ["same-origin", "cross-frame", "request/response"],
+        badge: "Interactive",
+    },
+    {
+        href: "/examples/postmessage",
+        icon: MessageSquare,
+        title: "postMessage",
+        description:
+            "Parent page and child iframe communicating via window.postMessage. Point-to-point: the parent holds a direct reference to the iframe's contentWindow.",
+        tags: ["point-to-point", "cross-frame", "IframeBridgeHost"],
         badge: "Interactive",
     },
 ];
@@ -17,7 +26,8 @@ const ExamplesPage = () => (
     <main className="mx-auto max-w-4xl px-6 py-16">
         <h1 className="mb-2 text-3xl font-bold text-zinc-100">Examples</h1>
         <p className="mb-12 text-zinc-400">
-            Interactive demos. Inspect message flow, connection state, and response timing in real time.
+            Interactive demos with real iframes. Inspect message flow, connection state, and response
+            timing in the always-visible DevTools panel below each example.
         </p>
 
         <div className="grid gap-4">
