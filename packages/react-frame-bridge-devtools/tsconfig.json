@@ -8,6 +8,7 @@
         "jsxImportSource": "react",
         "types": ["react", "react-dom"],
         "strict": true,
+        "declarationMap": true,
         "skipLibCheck": true,
         "baseUrl": ".",
         "paths": {

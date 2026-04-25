@@ -89,7 +89,6 @@ export const createBridgeState = <T extends any>(initialState: Partial<BridgeSta
         patchChannelState(transportType, {
             messageCount: current + 1,
         });
-        emit();
     }
 
     return {

@@ -188,7 +188,7 @@ export const createBridge
     const openTransport = async (type: TransportType, port?: MessagePort) => {
         const transport = ensureTransportBuilt(type);
         if (handlersUnsubscribe.has(type)) return;
-        const off = transport.onMessage((msg) => handleIncomingMessages(msg, type));
+        const off = transport.onMessage((msg) => handleIncomingMessages(msg, type).catch(err => logger.error(`[bridge:${channelName}] Unhandled error in message handler:`, err)));
         handlersUnsubscribe.set(type, off);
         await transport.open(type === `message-channel` ? port : undefined);
         patchChannelState(type, {state: `open`, messageCount: 0});
