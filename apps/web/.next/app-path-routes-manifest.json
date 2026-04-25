@@ -1,0 +1,10 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/examples/page": "/examples",
+  "/examples/broadcast/page": "/examples/broadcast",
+  "/page": "/",
+  "/docs/devtools/page": "/docs/devtools",
+  "/docs/react-frame-bridge/page": "/docs/react-frame-bridge",
+  "/docs/frame-bridge/page": "/docs/frame-bridge",
+  "/docs/page": "/docs"
+}

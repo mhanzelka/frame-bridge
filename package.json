@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "private": true,
     "type": "module",
-    "workspaces": ["packages/*"],
+    "workspaces": ["packages/*", "apps/*"],
     "scripts": {
         "build": "npm run build -w packages/frame-bridge && npm run build -w packages/react-frame-bridge && npm run build -w packages/react-frame-bridge-devtools",
         "test": "npm test -w packages/frame-bridge && npm test -w packages/react-frame-bridge && npm test -w packages/react-frame-bridge-devtools",

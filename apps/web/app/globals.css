@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@custom-variant active (&[data-active="true"]);
+
+button,
+[role="button"] {
+    cursor: pointer;
+}
+
+:disabled {
+    cursor: default;
+}
+
+/* Shiki code block reset */
+.shiki {
+    padding: 1.25rem 1.5rem;
+    border-radius: 0.75rem;
+    overflow-x: auto;
+    font-size: 0.875rem;
+    line-height: 1.7;
+}
