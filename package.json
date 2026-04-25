@@ -1,10 +1,14 @@
 {
     "name": "frame-bridge-monorepo",
+    "version": "0.1.0",
     "private": true,
+    "type": "module",
     "workspaces": ["packages/*"],
     "scripts": {
         "build": "npm run build -w packages/frame-bridge && npm run build -w packages/react-frame-bridge && npm run build -w packages/react-frame-bridge-devtools",
         "test": "npm test -w packages/frame-bridge",
-        "typecheck": "npm run typecheck --workspaces --if-present"
+        "typecheck": "npm run typecheck --workspaces --if-present",
+        "sync-versions": "node scripts/sync-versions.js",
+        "release": "npm run sync-versions && npm run build && npm test"
     }
 }
