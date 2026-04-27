@@ -54,7 +54,11 @@ export const createPostMessageTransport = <T extends any>(
         transfer?: Transferable[]
     ) => {
         const win = targetWindow();
-        if (!win) throw new Error(`[PostMessageTransport:${channelName}] No target window`);
+        if (!win) throw new Error(
+            `[PostMessageTransport:${channelName}] No target window. ` +
+            `For iframe children pass createBridge({ target: window.parent, targetOrigin: '*' }). ` +
+            `For popup children pass createBridge({ target: window.opener, targetOrigin: '*' }).`
+        );
 
         const origin = targetOrigin();
         if (!origin) throw new Error(`[PostMessageTransport:${channelName}] No target origin`);
