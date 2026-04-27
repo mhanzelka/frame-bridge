@@ -127,4 +127,29 @@ describe("Bridge integration (BroadcastChannel)", () => {
         ac.abort();
         await expect(p).rejects.toThrow(/abort/i);
     });
+
+    it("waitForReady resolves once both sides answer sys ping", async () => {
+        await expect(parent.waitForReady({ timeoutMs: 1000, intervalMs: 50 })).resolves.toBeUndefined();
+    });
+
+    it("waitForReady rejects when the other side is missing", async () => {
+        const lonely = createBridge({
+            channelName: "waitForReady-lonely-channel",
+            enabled: ["broadcast-channel"],
+            role: "parent",
+        });
+        await lonely.open();
+        try {
+            await expect(
+                lonely.waitForReady({ timeoutMs: 250, intervalMs: 50 })
+            ).rejects.toThrow(/timed out/i);
+        } finally {
+            lonely.close();
+        }
+    });
+
+    it("waitForReady throws synchronously when bridge is closed", async () => {
+        const closed = makeParent();
+        await expect(closed.waitForReady({ timeoutMs: 100 })).rejects.toThrow(/closed bridge/i);
+    });
 });

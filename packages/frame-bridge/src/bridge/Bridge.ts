@@ -4,7 +4,8 @@ import {
     SendMessageOptions,
     BridgeActiveTransports,
     OnMessageHandler,
-    CreateBridgeParams, TransferableTransportType
+    CreateBridgeParams, TransferableTransportType,
+    WaitForReadyOptions
 } from "@/bridge/types";
 import {
     BridgeMessage, isBridgeEventMessage, isBridgeResponseMessage,
@@ -60,21 +61,39 @@ export const createBridge
 
     const isSameOrigin = () => origin === window.location.origin;
 
-    const awaitForConnection = async (type: TransportType, numberOfAttempts: number, delayMs: number) => {
-        for (let attempt = 1; attempt <= numberOfAttempts; attempt++) {
+    // Polls the other side with a sys ping until it answers or the deadline expires.
+    // Used both internally during MessageChannel handshake and exposed publicly so
+    // a parent can wait for a child bridge to come up before sending init payloads.
+    const waitForReady = async (options?: WaitForReadyOptions): Promise<void> => {
+        const timeoutMs = options?.timeoutMs ?? 5000;
+        const intervalMs = options?.intervalMs ?? 200;
+        const preferredTransport = options?.preferredTransport;
+
+        if (!isOpen()) {
+            throw new Error(`[bridge:${channelName}] waitForReady called on closed bridge — call open() first`);
+        }
+
+        const deadline = Date.now() + timeoutMs;
+        let attempts = 0;
+
+        while (true) {
+            attempts++;
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+                throw new Error(`[bridge:${channelName}] waitForReady timed out after ${timeoutMs}ms (${attempts} attempts)`);
+            }
             try {
-                await ping(1000);
-                return true;
+                await sendSys({command: `ping`}, {
+                    timeout: Math.min(1000, remaining),
+                    preferredTransport
+                });
+                return;
             } catch {
-                logger.warn(`[bridge:${channelName}] Ping attempt ${attempt}/${numberOfAttempts} failed, retrying in ${delayMs}ms`);
-                await new Promise(res => setTimeout(res, delayMs));
+                logger.warn(`[bridge:${channelName}] waitForReady ping attempt ${attempts} failed, retrying`);
+                const wait = Math.min(intervalMs, deadline - Date.now());
+                if (wait > 0) await new Promise(res => setTimeout(res, wait));
             }
         }
-        throw new Error(`Failed to establish connection over ${type} after ${numberOfAttempts} attempts.`);
-    }
-
-    const ping = async (timeout: number = 1000) => {
-        return sendSys({command: `ping`}, {timeout: timeout, preferredTransport: `post-message-channel`});
     }
 
     const messageChannelHandshake = async (port: MessagePort) => {
@@ -84,7 +103,7 @@ export const createBridge
             const opened = transport.isOpen();
 
             await openTransport(handshakeTransport);
-            await awaitForConnection(handshakeTransport, 5, 200);
+            await waitForReady({timeoutMs: 6000, intervalMs: 200, preferredTransport: handshakeTransport});
 
             logger.log(`[bridge:${channelName}] Sending MessageChannel handshake (id: ${id})`);
             await sendSys(
@@ -206,7 +225,7 @@ export const createBridge
     const open = async () => {
         // Open all non-message-channel transports first (message-channel needs them for handshake)
         const standard = enabled.filter(t => t !== `message-channel`);
-        await Promise.all(standard.map(openTransport));
+        await Promise.all(standard.map(t => openTransport(t)));
 
         // Then handle message-channel sequentially (parent only — child receives port via handshake)
         if (enabled.includes(`message-channel`) && role !== `child`) {
@@ -278,7 +297,7 @@ export const createBridge
                 logger.warn(`[bridge:${channelName}] Transport ${type} unavailable, trying next`);
                 continue;
             }
-            logger.log(`[bridge:${channelName}] → ${type} ${message.msgId}`);
+            logger.log(`[bridge:${channelName}] → ${type} ${message.msgId}`, message.data);
             notifyObservers(type, {type: `message`, direction: `out`, message});
             incMessageCount(type);
             transport.post(message, sendOpt.transfer || []);
@@ -333,6 +352,7 @@ export const createBridge
     return {
         id, channelName, origin,
         open, close, enable, disable, send, isOpen, active, setTarget, onMessage, sendEvent,
+        waitForReady,
         addMessageObserver,
         state: {
             getState,

@@ -49,6 +49,12 @@ export type SendMessageFunction<T extends any = any> = (
     options?: SendMessageOptions
 ) => Promise<T>;
 
+export type WaitForReadyOptions = {
+    timeoutMs?: number,
+    intervalMs?: number,
+    preferredTransport?: TransportType,
+}
+
 export interface CreateBridgeOptions<T extends any> {
     /**
      * Message key to identify messages belonging to this bridge instance.
@@ -76,6 +82,7 @@ export type Bridge<T extends any = any> = {
     disable: (type: TransportType) => void,
     send: SendMessageFunction<T>,
     sendEvent: SendEventFunction<T>,
+    waitForReady: (options?: WaitForReadyOptions) => Promise<void>,
     isOpen: () => boolean,
     active: () => BridgeActiveTransports,
     setTarget: (win: Window | null, newOrigin: string | `same-origin`) => void,
