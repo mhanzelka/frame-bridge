@@ -151,7 +151,7 @@ export const createBridge
         = async (message: BridgeMessage<T | SystemMessagePayload>, source: TransportType): Promise<BridgeMessage<T> | undefined> => {
         logger.log(`[bridge:${channelName}] ← ${source} ${message.msgId}`);
 
-        notifyObservers(source, {type: `message`, message});
+        notifyObservers(source, {type: `message`, direction: `in`, message});
         incMessageCount(source)
 
         if (isBridgeResponseMessage(message, channelName) && pendingStore.hasPending(message.responseTo)) {
@@ -181,7 +181,7 @@ export const createBridge
             return;
         }
         transport.post(responseMessage);
-        notifyObservers(source, {type: `message`, message: responseMessage});
+        notifyObservers(source, {type: `message`, direction: `out`, message: responseMessage});
         incMessageCount(source);
     }
 
@@ -279,7 +279,7 @@ export const createBridge
                 continue;
             }
             logger.log(`[bridge:${channelName}] → ${type} ${message.msgId}`);
-            notifyObservers(type, {type: `message`, message});
+            notifyObservers(type, {type: `message`, direction: `out`, message});
             incMessageCount(type);
             transport.post(message, sendOpt.transfer || []);
 
@@ -315,7 +315,7 @@ export const createBridge
             }
             logger.log(`[bridge:${channelName}] →evt ${type} ${message.msgId}`);
             transport.post(message);
-            notifyObservers(type, {type: `message`, message});
+            notifyObservers(type, {type: `message`, direction: `out`, message});
             incMessageCount(type);
             return;
         }

@@ -12,6 +12,7 @@ export type BridgeObserverEvent<T = any> = {
 
 export type BridgeObserverMessageEvent<T extends any = any> = {
     type: `message`,
+    direction: `in` | `out`,
     message: BridgeMessage<T>,
 }
 

@@ -12,13 +12,14 @@ describe("createBridgeObserver", () => {
         addObserver(observer);
 
         const msg = makeRequestMessage("src", "app", CHANNEL, { x: 1 });
-        notifyObservers("broadcast-channel", { type: "message", message: msg });
+        notifyObservers("broadcast-channel", { type: "message", direction: "in", message: msg });
 
         expect(observer).toHaveBeenCalledOnce();
         const event = observer.mock.calls[0][0];
         expect(event.channelName).toBe(CHANNEL);
         expect(event.transportType).toBe("broadcast-channel");
         expect(event.type).toBe("message");
+        expect(event.direction).toBe("in");
         expect(event.message).toBe(msg);
     });
 
@@ -28,7 +29,7 @@ describe("createBridgeObserver", () => {
         addObserver(observer);
         addObserver(observer);
 
-        notifyObservers("broadcast-channel", { type: "message", message: makeRequestMessage("s", "app", CHANNEL, {}) });
+        notifyObservers("broadcast-channel", { type: "message", direction: "in", message: makeRequestMessage("s", "app", CHANNEL, {}) });
         expect(observer).toHaveBeenCalledOnce();
     });
 
@@ -38,7 +39,7 @@ describe("createBridgeObserver", () => {
         const remove = addObserver(observer);
         remove();
 
-        notifyObservers("broadcast-channel", { type: "message", message: makeRequestMessage("s", "app", CHANNEL, {}) });
+        notifyObservers("broadcast-channel", { type: "message", direction: "in", message: makeRequestMessage("s", "app", CHANNEL, {}) });
         expect(observer).not.toHaveBeenCalled();
     });
 
@@ -49,7 +50,7 @@ describe("createBridgeObserver", () => {
         addObserver(bad);
         addObserver(good);
 
-        notifyObservers("broadcast-channel", { type: "message", message: makeRequestMessage("s", "app", CHANNEL, {}) });
+        notifyObservers("broadcast-channel", { type: "message", direction: "in", message: makeRequestMessage("s", "app", CHANNEL, {}) });
         expect(good).toHaveBeenCalledOnce();
     });
 
@@ -72,7 +73,7 @@ describe("createBridgeObserver", () => {
         addObserver(a);
         addObserver(b);
 
-        notifyObservers("broadcast-channel", { type: "message", message: makeRequestMessage("s", "app", CHANNEL, {}) });
+        notifyObservers("broadcast-channel", { type: "message", direction: "in", message: makeRequestMessage("s", "app", CHANNEL, {}) });
         expect(a).toHaveBeenCalledOnce();
         expect(b).toHaveBeenCalledOnce();
     });
