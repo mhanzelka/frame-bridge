@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { createBridgeObserver } from "@/bridge/observer/BridgeObserver";
 import { makeRequestMessage } from "@/bridge/messages";
+import * as logger from "@/logger";
 
 const CHANNEL = "obs-test";
 const BRIDGE_ID = "bridge-1";
@@ -44,14 +45,22 @@ describe("createBridgeObserver", () => {
     });
 
     it("observer error does not crash other observers", () => {
-        const { addObserver, notifyObservers } = createBridgeObserver(BRIDGE_ID, CHANNEL);
-        const bad = vi.fn().mockImplementation(() => { throw new Error("boom"); });
-        const good = vi.fn();
-        addObserver(bad);
-        addObserver(good);
+        // Silence the expected error log so the suite's stderr stays clean,
+        // and assert that the catch path did fire.
+        const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+        try {
+            const { addObserver, notifyObservers } = createBridgeObserver(BRIDGE_ID, CHANNEL);
+            const bad = vi.fn().mockImplementation(() => { throw new Error("boom"); });
+            const good = vi.fn();
+            addObserver(bad);
+            addObserver(good);
 
-        notifyObservers("broadcast-channel", { type: "message", direction: "in", message: makeRequestMessage("s", "app", CHANNEL, {}) });
-        expect(good).toHaveBeenCalledOnce();
+            notifyObservers("broadcast-channel", { type: "message", direction: "in", message: makeRequestMessage("s", "app", CHANNEL, {}) });
+            expect(good).toHaveBeenCalledOnce();
+            expect(errorSpy).toHaveBeenCalledOnce();
+        } finally {
+            errorSpy.mockRestore();
+        }
     });
 
     it("notifies timeout events correctly", () => {
