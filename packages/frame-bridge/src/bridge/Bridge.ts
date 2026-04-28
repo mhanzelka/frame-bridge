@@ -16,7 +16,7 @@ import {
 import {createBroadcastTransport} from "@/bridge/transports/BroadcastChannelTransport";
 import {createPostMessageTransport} from "@/bridge/transports/PostMessageTransport";
 import {Transport} from "@/bridge/transports/Transport";
-import {isWindowReachable} from "@/BrowserUtils";
+import {detectChildTarget, isWindowReachable} from "@/BrowserUtils";
 import {createPendingStore} from "@/comm/PendingStore";
 import {createBridgeObserver} from "@/bridge/observer/BridgeObserver";
 import {createBridgeState} from "@/bridge/BridgeState";
@@ -45,7 +45,10 @@ export const createBridge
     }
 
     let origin = targetOrigin === `same-origin` ? window.location.origin : targetOrigin;
-    let targetWindow: Window | null = target ?? null;
+    // No explicit target → infer the host window (iframe parent / popup opener).
+    // Top-level pages without an opener stay null and rely on setTarget() later
+    // (parent role pointing at an iframe.contentWindow).
+    let targetWindow: Window | null = target ?? detectChildTarget();
     let onMessageHandler: OnMessageHandler<T> | null = null;
 
     const id = (prefix ? `${prefix}-` : ``) + Math.random().toString(36).slice(2);
