@@ -55,7 +55,7 @@ const child = createBridge({
     enabled: ["post-message-channel"],
     role: "child",
     targetOrigin: "https://parent.example.com",
-    target: window.parent,
+    // target auto-detected from window.parent
 });
 
 await child.open();
@@ -66,6 +66,22 @@ import { enableBridgeDebug, disableBridgeDebug } from "@mhanzelka/frame-bridge";
 
 enableBridgeDebug();   // prints all bridge activity to console
 disableBridgeDebug();  // silence (default)`;
+
+const WAIT_FOR_READY = `\
+const bridge = createBridge({
+    channelName: "iframe-channel",
+    enabled: ["post-message-channel"],
+    role: "parent",
+    targetOrigin: "https://child.example.com",
+    target: iframeElement.contentWindow,
+});
+
+await bridge.open();
+
+// Wait until the child bridge answers a sys ping before sending the first request.
+// Defaults: timeoutMs = 5000, intervalMs = 200.
+await bridge.waitForReady({ timeoutMs: 5000 });
+await bridge.send({ type: "init", config });`;
 
 const POPUP = `\
 import { openBridgeWindow } from "@mhanzelka/frame-bridge/bridge/BridgeUtils";
@@ -84,7 +100,7 @@ const createBridgeParams = [
     { name: "role", type: '"parent" | "child"', description: "Each side picks a role. For MessageChannel, parent initiates." },
     { name: "enabled", type: "TransportType[]", description: 'Which transports to use: "broadcast-channel", "post-message-channel", "message-channel".' },
     { name: "targetOrigin", type: "string", description: 'Required for "post-message-channel". Use "same-origin" for same-origin targets.' },
-    { name: "target", type: "Window", description: 'Target window for "post-message-channel".' },
+    { name: "target", type: "Window?", description: 'Target window for "post-message-channel". Optional in child contexts — auto-detects window.parent (iframe) or window.opener (popup). Parent contexts pass it explicitly (or via setTarget when the iframe mounts).' },
     { name: "prefix", type: "string", description: "Optional prefix for the generated bridge ID." },
     { name: "options.resolveMessageKey", type: "(msg) => string", description: "Custom key used in timeout error messages." },
 ];
@@ -97,10 +113,11 @@ const bridgeMethods = [
     { name: "onMessage(handler)", type: "() => void", description: "Register incoming message handler. Returns unsubscribe function." },
     { name: "isOpen()", type: "boolean", description: "True if at least one transport is open." },
     { name: "active()", type: "BridgeActiveTransports", description: "Lists currently enabled and open transports." },
+    { name: "waitForReady(options?)", type: "Promise<void>", description: "Polls the peer with a sys ping until it answers (or the deadline expires). Use after open() to gate the first send so it doesn't hit a not-yet-mounted child." },
     { name: "enable(type)", type: "Promise<void>", description: "Enable a transport at runtime." },
     { name: "disable(type)", type: "void", description: "Disable a transport at runtime." },
     { name: "setTarget(win, origin)", type: "void", description: "Update the postMessage target window and origin." },
-    { name: "addMessageObserver(fn)", type: "() => void", description: "Subscribe to all sent/received messages for debugging." },
+    { name: "addMessageObserver(fn)", type: "() => void", description: 'Subscribe to all sent/received messages for debugging. Each event carries direction: "in" | "out" and the transportType.' },
     { name: "state", type: "BridgeStateStore", description: "Reactive state store, compatible with useSyncExternalStore." },
 ];
 
@@ -151,6 +168,16 @@ const FrameBridgePage = () => (
                     Never use <code className="font-mono text-sm">targetOrigin: "*"</code> in production — it skips origin validation on receive.
                 </Note>
             </div>
+        </section>
+
+        <section className="mb-12">
+            <h2 className="mb-4 text-xl font-semibold text-zinc-100">Waiting for the peer</h2>
+            <p className="mb-4 text-zinc-400">
+                Use <code className="font-mono text-sm text-blue-300">waitForReady()</code> after{" "}
+                <code className="font-mono text-sm">open()</code> to gate the first send. It polls the other
+                side with a system ping until it answers — useful when the iframe loads before the child bridge mounts.
+            </p>
+            <CodeBlock code={WAIT_FOR_READY} lang="ts" />
         </section>
 
         <section className="mb-12">
