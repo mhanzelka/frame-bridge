@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, Zap, GitMerge, Code2, Bug } from "lucide-react";
+import { ArrowRight, Zap, GitMerge, Code2, Bug, Github } from "lucide-react";
 import { CodeBlock } from "@/shared/components/CodeBlock";
+import { InstallCommand } from "@/shared/components/InstallCommand";
 
 const HERO_CODE = `\
 // parent.ts
@@ -113,10 +114,13 @@ const Home = () => (
                     Type-safe messaging between{" "}
                     <span className="text-blue-400">browser windows</span>
                 </h1>
-                <p className="mb-10 max-w-2xl text-lg text-zinc-400">
+                <p className="mb-8 max-w-2xl text-lg text-zinc-400">
                     Send requests and receive responses between iframes, tabs, and popups.
                     Works with vanilla JS or React. Three transport mechanisms, one unified API.
                 </p>
+                <div className="mb-10 max-w-md">
+                    <InstallCommand command="npm install @mhanzelka/frame-bridge" />
+                </div>
                 <div className="flex flex-wrap gap-3">
                     <Link
                         href="/docs"
@@ -130,6 +134,14 @@ const Home = () => (
                     >
                         See live demo
                     </Link>
+                    <a
+                        href="https://github.com/mhanzelka/frame-bridge"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-lg border border-zinc-700 px-5 py-2.5 text-sm text-zinc-300 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
+                    >
+                        <Github size={16} /> View on GitHub
+                    </a>
                 </div>
             </div>
         </section>
@@ -149,11 +161,7 @@ const Home = () => (
                             The bridge handles message correlation, timeouts, transport selection,
                             and error handling. You just send and receive.
                         </p>
-                        <div className="flex gap-2 font-mono text-sm">
-                            <span className="rounded bg-zinc-800 px-2 py-1 text-zinc-300">
-                                npm i @mhanzelka/frame-bridge
-                            </span>
-                        </div>
+                        <InstallCommand command="npm install @mhanzelka/frame-bridge" />
                     </div>
                     <CodeBlock code={HERO_CODE} lang="ts" />
                 </div>
@@ -187,11 +195,7 @@ const Home = () => (
                             </code>
                             .
                         </p>
-                        <div className="flex gap-2 font-mono text-sm">
-                            <span className="rounded bg-zinc-800 px-2 py-1 text-zinc-300">
-                                npm i @mhanzelka/react-frame-bridge
-                            </span>
-                        </div>
+                        <InstallCommand command="npm install @mhanzelka/react-frame-bridge" />
                     </div>
                 </div>
             </div>
@@ -273,6 +277,14 @@ const Home = () => (
                     >
                         Live examples
                     </Link>
+                    <a
+                        href="https://github.com/mhanzelka/frame-bridge"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-lg border border-zinc-700 px-6 py-3 font-medium text-zinc-300 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
+                    >
+                        <Github size={16} /> GitHub
+                    </a>
                 </div>
             </div>
         </section>
