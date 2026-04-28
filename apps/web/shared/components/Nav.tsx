@@ -17,7 +17,7 @@ export const Nav = () => (
                     Examples
                 </Link>
                 <a
-                    href="https://github.com/scyllacz/frame-bridge"
+                    href="https://github.com/mhanzelka/frame-bridge"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-zinc-100 transition-colors"
