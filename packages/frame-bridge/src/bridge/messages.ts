@@ -67,7 +67,10 @@ export const isBridgeResponseMessage
     msg: any,
     channelName: string
 ): msg is BridgeResponseMessage<T> => {
-    return isBridgeMessage<T>(msg, channelName) && msg.msgId.startsWith(`res:`) && typeof msg.responseTo === `string`;
+    return isBridgeMessage<T>(msg, channelName)
+        && msg.msgId.startsWith(`res:`)
+        && `responseTo` in msg
+        && typeof msg.responseTo === `string`;
 }
 
 export const isBridgeEventMessage
