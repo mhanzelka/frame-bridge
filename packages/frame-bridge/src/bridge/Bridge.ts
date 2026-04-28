@@ -27,6 +27,22 @@ import * as logger from "@/logger";
 declare const __BRIDGE_VERSION__: string;
 export const bridgeVersion: string = typeof __BRIDGE_VERSION__ !== `undefined` ? __BRIDGE_VERSION__ : `0.0.0`;
 
+/**
+ * Create a {@link Bridge} for two-way communication between a parent window/page
+ * and a child (iframe or popup).
+ *
+ * Multiplexes over up to three transports — `broadcast-channel` (same-origin),
+ * `post-message-channel` (cross-origin via `window.postMessage`), and `message-channel`
+ * (transferred MessagePort, lowest latency). `enabled` order defines the default
+ * priority for outbound messages.
+ *
+ * Roles: `parent` actively opens the MessageChannel and transfers a port to the child;
+ * `child` receives the port via the post-message handshake. The `target` window is
+ * auto-detected for child contexts (`window.parent` → `window.opener`); parent-role
+ * pages typically pass it later via `setTarget` once the iframe mounts.
+ *
+ * @returns a {@link Bridge} object — see its docs for the public surface.
+ */
 export const createBridge
     = <T extends any>(
     {
@@ -64,9 +80,11 @@ export const createBridge
 
     const isSameOrigin = () => origin === window.location.origin;
 
-    // Polls the other side with a sys ping until it answers or the deadline expires.
-    // Used both internally during MessageChannel handshake and exposed publicly so
-    // a parent can wait for a child bridge to come up before sending init payloads.
+    /**
+     * Polls the peer with a `sys:ping` until it answers or the deadline expires.
+     * Used internally during MessageChannel handshake and exposed publicly so a
+     * parent can wait for the child bridge to come up before sending init payloads.
+     */
     const waitForReady = async (options?: WaitForReadyOptions): Promise<void> => {
         const timeoutMs = options?.timeoutMs ?? 5000;
         const intervalMs = options?.intervalMs ?? 200;
@@ -99,6 +117,13 @@ export const createBridge
         }
     }
 
+    /**
+     * Parent-side MessageChannel handshake: temporarily ensures the post-message
+     * transport is open, waits for the child to answer a sys ping (so we know
+     * a bridge is mounted on the other side), then transfers `port` to it.
+     * If the post-message transport was not previously open, it is closed again
+     * after the handshake — we only used it as a courier.
+     */
     const messageChannelHandshake = async (port: MessagePort) => {
         try {
             const handshakeTransport: TransferableTransportType = `post-message-channel`;
@@ -169,6 +194,16 @@ export const createBridge
         }
     }
 
+    /**
+     * Routes an incoming message:
+     *   1. response → resolves a pending `send` promise via {@link pendingStore}
+     *   2. sys request → handled by {@link onBridgeSystemMessage}
+     *   3. app request → forwarded to the user-installed `onMessage` handler
+     *
+     * Request handlers may return a value, which is wrapped into a response
+     * message and sent back over the same transport that delivered the request.
+     * Event messages (`evt:` prefix) are dispatched without expecting a reply.
+     */
     const handleIncomingMessages
         = async (message: BridgeMessage<T | SystemMessagePayload>, source: TransportType): Promise<BridgeMessage<T> | undefined> => {
         logger.log(`[bridge:${channelName}] ← ${source} ${message.msgId}`);
@@ -225,12 +260,16 @@ export const createBridge
         patchChannelState(type, {state: `closed`});
     }
 
+    /**
+     * Opens all enabled transports. Standard transports are opened in parallel;
+     * `message-channel` is opened sequentially afterwards because it needs another
+     * transport (post-message or broadcast) already open to negotiate the port handshake.
+     * Only `parent` role actively opens `message-channel` — `child` receives the port via the handshake.
+     */
     const open = async () => {
-        // Open all non-message-channel transports first (message-channel needs them for handshake)
         const standard = enabled.filter(t => t !== `message-channel`);
         await Promise.all(standard.map(t => openTransport(t)));
 
-        // Then handle message-channel sequentially (parent only — child receives port via handshake)
         if (enabled.includes(`message-channel`) && role !== `child`) {
             if (!isWindowReachable(targetWindow) && !isSameOrigin()) {
                 throw new Error(`Cannot open MessageChannel: no reachable target window or same-origin context`);
@@ -241,20 +280,24 @@ export const createBridge
         patchState({state: `open`});
     }
 
+    /** Closes all transports and rejects any in-flight requests waiting for a response. */
     const close = () => {
         enabled.map(closeTransport)
         pendingStore.clearAll();
         patchState({state: `closed`});
     }
 
+    /** Dynamically open a single transport that was declared in `enabled`. */
     const enable = async (type: TransportType) => {
         await openTransport(type);
     }
 
+    /** Dynamically close a single transport without affecting the others. */
     const disable = (type: TransportType) => {
         closeTransport(type);
     }
 
+    /** Returns a snapshot of which transports are currently enabled vs actually opened. */
     const active = () => {
         const enabledTransports = Array.from(transports.keys()) as TransportType[];
         const openedTransports = enabledTransports.filter(t => transports.get(t)!.isOpen());
@@ -264,19 +307,36 @@ export const createBridge
         } as BridgeActiveTransports
     }
 
+    /** True once at least one transport is open. */
     const isOpen = () => active().opened.length > 0;
 
+    /**
+     * Retargets the post-message transport. Used by `IframeBridgeHost` to point the
+     * parent bridge at the iframe's `contentWindow` on mount, and to clear it (`win = null`) on unmount.
+     */
     const setTarget = (win: Window | null, newOrigin: string | `same-origin`) => {
         targetWindow = win;
         origin = newOrigin === `same-origin` ? window.location.origin : newOrigin;
         patchState({origin: newOrigin});
     }
 
+    /**
+     * Installs the single handler for incoming app messages. Returns an unsubscribe
+     * function. Pass `null` to clear. The handler may return a value to reply to a
+     * request, or `undefined` for events.
+     */
     const onMessage = (handler: OnMessageHandler<T> | null) => {
         onMessageHandler = handler;
         return () => { onMessageHandler = null; };
     }
 
+    /**
+     * Core request/response send. Walks transports in priority order
+     * (`preferredTransport` first if given, otherwise `enabled` order), posts
+     * the message on the first one that's open, and registers a pending entry
+     * so the matching response can resolve the returned promise. Times out
+     * via {@link pendingStore}; cancellable via `options.signal`.
+     */
     const sendInternal = async (
         data: MessagePayload<T>,
         domain: MessageDomain,
@@ -347,7 +407,9 @@ export const createBridge
     const sendSys = (data: SystemMessagePayload, options?: SendMessageOptions) =>
         sendInternal(data, `sys`, options);
 
+    /** Request/response. Resolves with the peer's reply, rejects on timeout/abort. */
     const send = (data: T, options?: SendMessageOptions) => sendInternal(data, `app`, options);
+    /** Fire-and-forget event. No reply expected. */
     const sendEvent = (data: T) => sendEventInternal(`app`, data);
 
     logger.log(`[bridge] Created channel "${channelName}" id=${id}`);
