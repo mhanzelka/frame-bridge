@@ -37,11 +37,26 @@ export type SendMessageOptions = {
     timeout?: number,
     signal?: AbortSignal,
     transfer?: Transferable[],
-    preferredTransport?: TransportType
+    preferredTransport?: TransportType,
+    /**
+     * Address the request to a specific bridge instance (matched against {@link Bridge.id}).
+     * Bridges with a different `id` ignore the request entirely. Useful on `broadcast-channel`
+     * to avoid having every listener race to answer the same request.
+     */
+    targetId?: string
+}
+
+export type SendEventOptions = {
+    /**
+     * Address the event to a specific bridge instance (matched against {@link Bridge.id}).
+     * Bridges with a different `id` ignore the event. When omitted, every listener handles it (broadcast).
+     */
+    targetId?: string
 }
 
 export type SendEventFunction<T extends any = any> = (
-    data: T
+    data: T,
+    options?: SendEventOptions
 ) => void;
 
 export type SendMessageFunction<T extends any = any> = (
@@ -67,7 +82,14 @@ export interface CreateBridgeOptions<T extends any> {
 }
 
 export type CreateBridgeParams<T extends any> = {
-    /** Optional prefix prepended to the generated bridge `id` for easier log filtering. */
+    /**
+     * Explicit bridge instance id used as-is. When provided, replaces the random id
+     * (and ignores `prefix`). Useful for naming endpoints — e.g. so peers can address
+     * each other deterministically via {@link SendMessageOptions.targetId}.
+     * Caller is responsible for uniqueness within the same `channelName`.
+     */
+    id?: string,
+    /** Optional prefix prepended to the generated bridge `id` for easier log filtering. Ignored when `id` is set. */
     prefix?: string,
     /** Logical channel name. Both ends must agree on it for messages to be routed. */
     channelName: string,
@@ -94,7 +116,11 @@ export type CreateBridgeParams<T extends any> = {
  * Lifecycle: `open()` → `waitForReady()` (optional, gates first send) → `send`/`sendEvent` → `close()`.
  */
 export type Bridge<T extends any = any> = {
-    /** Random per-instance ID. Used in log lines for correlating both ends. */
+    /**
+     * Per-instance ID. Either the value passed via {@link CreateBridgeParams.id},
+     * or a random string (optionally prefixed by {@link CreateBridgeParams.prefix}).
+     * Used in log lines and as the `sourceId` / `targetId` for routing on shared transports.
+     */
     id: string,
     /** Logical channel name shared by both ends. Read-only mirror of `CreateBridgeParams.channelName`. */
     channelName: string,

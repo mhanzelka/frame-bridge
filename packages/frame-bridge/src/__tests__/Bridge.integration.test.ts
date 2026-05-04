@@ -254,3 +254,187 @@ describe("Bridge transport toggling on a live connection", () => {
         child.close();
     });
 });
+
+describe("Bridge targetId addressing on BroadcastChannel", () => {
+    const channelName = "targetid-multi-instance";
+    type Msg = { type: string; value?: number };
+
+    let a: Bridge<Msg>;
+    let b: Bridge<Msg>;
+    let c: Bridge<Msg>;
+
+    beforeEach(async () => {
+        a = createBridge<Msg>({ channelName, enabled: ["broadcast-channel"], role: "parent" });
+        b = createBridge<Msg>({ channelName, enabled: ["broadcast-channel"], role: "child" });
+        c = createBridge<Msg>({ channelName, enabled: ["broadcast-channel"], role: "child" });
+        await Promise.all([a.open(), b.open(), c.open()]);
+    });
+
+    afterEach(() => {
+        a.close();
+        b.close();
+        c.close();
+    });
+
+    it("explicit id from CreateBridgeParams replaces the random one and is usable as targetId", async () => {
+        const named = createBridge<Msg>({
+            id: "named-endpoint-1",
+            channelName,
+            enabled: ["broadcast-channel"],
+            role: "child",
+        });
+        await named.open();
+        try {
+            expect(named.id).toBe("named-endpoint-1");
+
+            const handler = vi.fn().mockResolvedValue({ type: "from-named" });
+            named.onMessage(handler);
+            const otherHandler = vi.fn().mockResolvedValue({ type: "from-b" });
+            b.onMessage(otherHandler);
+
+            const reply = await a.send({ type: "ping" }, { targetId: "named-endpoint-1" });
+            expect(reply).toEqual({ type: "from-named" });
+            expect(otherHandler).not.toHaveBeenCalled();
+        } finally {
+            named.close();
+        }
+    });
+
+    it("explicit id wins over prefix", () => {
+        const b = createBridge<Msg>({
+            id: "explicit-wins",
+            prefix: "should-be-ignored",
+            channelName: "explicit-vs-prefix",
+            enabled: ["broadcast-channel"],
+            role: "parent",
+        });
+        try {
+            expect(b.id).toBe("explicit-wins");
+        } finally {
+            // never opened — close is a no-op but keeps symmetry
+            b.close();
+        }
+    });
+
+    it("empty string id falls back to the generated id (no degenerate ids)", () => {
+        const b = createBridge<Msg>({
+            id: "",
+            prefix: "fallback",
+            channelName: "empty-id-fallback",
+            enabled: ["broadcast-channel"],
+            role: "parent",
+        });
+        try {
+            expect(b.id).not.toBe("");
+            expect(b.id.startsWith("fallback-")).toBe(true);
+        } finally {
+            b.close();
+        }
+    });
+
+    it("targeted request reaches only the addressed bridge's onMessage", async () => {
+        const bHandler = vi.fn().mockResolvedValue({ type: "from-b" });
+        const cHandler = vi.fn().mockResolvedValue({ type: "from-c" });
+        b.onMessage(bHandler);
+        c.onMessage(cHandler);
+
+        const reply = await a.send({ type: "ping" }, { targetId: b.id });
+
+        expect(reply).toEqual({ type: "from-b" });
+        expect(bHandler).toHaveBeenCalledOnce();
+        expect(cHandler).not.toHaveBeenCalled();
+    });
+
+    it("untargeted request races: both peers handle it, requester gets the first reply", async () => {
+        b.onMessage(async () => ({ type: "from-b" }));
+        c.onMessage(async () => ({ type: "from-c" }));
+
+        const reply = await a.send({ type: "ping" });
+
+        expect([{ type: "from-b" }, { type: "from-c" }]).toContainEqual(reply);
+    });
+
+    it("late losing-race responses are not routed to onMessage on the requester side", async () => {
+        // Both b and c reply; the second reply has no pending entry by the time it
+        // arrives. Such late responses must be dropped silently — never invoked as
+        // a request against the requester's handler (which would call it with the
+        // response payload and trigger an infinite reply-to-reply loop).
+        b.onMessage(async () => ({ type: "from-b" }));
+        c.onMessage(async () => ({ type: "from-c" }));
+        const aHandler = vi.fn(async () => undefined);
+        a.onMessage(aHandler);
+
+        await a.send({ type: "ping" });
+        await new Promise(r => setTimeout(r, 30));
+
+        expect(aHandler).not.toHaveBeenCalled();
+    });
+
+    it("targeted event reaches only the addressed bridge", async () => {
+        const bHandler = vi.fn();
+        const cHandler = vi.fn();
+        b.onMessage(async (msg) => { bHandler(msg); return undefined; });
+        c.onMessage(async (msg) => { cHandler(msg); return undefined; });
+
+        a.sendEvent({ type: "tap" }, { targetId: c.id });
+        await new Promise(r => setTimeout(r, 20));
+
+        expect(bHandler).not.toHaveBeenCalled();
+        expect(cHandler).toHaveBeenCalledOnce();
+    });
+
+    it("untargeted event reaches every peer (broadcast)", async () => {
+        const bHandler = vi.fn();
+        const cHandler = vi.fn();
+        b.onMessage(async (msg) => { bHandler(msg); return undefined; });
+        c.onMessage(async (msg) => { cHandler(msg); return undefined; });
+
+        a.sendEvent({ type: "tap" });
+        await new Promise(r => setTimeout(r, 20));
+
+        expect(bHandler).toHaveBeenCalledOnce();
+        expect(cHandler).toHaveBeenCalledOnce();
+    });
+
+    it("response carries targetId of original requester so unrelated peers ignore it at the handler level", async () => {
+        // Untargeted request: B and C both reply. C's reply, addressed to A, must not trigger
+        // anything on B (no pending entry, but also: targetId filter skips it before incMessageCount).
+        const bIncomingNonSelf: any[] = [];
+        b.addMessageObserver((ev) => {
+            if (ev.type !== "message") return;
+            if (ev.direction === "in" && ev.message.targetId && ev.message.targetId !== b.id) {
+                bIncomingNonSelf.push(ev.message);
+            }
+        });
+        b.onMessage(async () => ({ type: "from-b" }));
+        c.onMessage(async () => ({ type: "from-c" }));
+
+        await a.send({ type: "ping" });
+        await new Promise(r => setTimeout(r, 20));
+
+        // B observed at least one response addressed to A (could be its own broadcast echo
+        // or C's response — either way, targetId is set and != b.id).
+        expect(bIncomingNonSelf.length).toBeGreaterThan(0);
+        for (const msg of bIncomingNonSelf) {
+            expect(msg.targetId).toBe(a.id);
+        }
+    });
+
+    it("observer still sees foreign-targeted incoming messages even though handlers don't fire", async () => {
+        const bHandler = vi.fn().mockResolvedValue({ type: "from-b" });
+        b.onMessage(bHandler);
+        const cObserved: any[] = [];
+        c.addMessageObserver((ev) => {
+            if (ev.type !== "message") return;
+            if (ev.direction === "in") cObserved.push(ev.message);
+        });
+        c.onMessage(async () => { throw new Error("c.onMessage must not fire for targeted send to b"); });
+
+        await a.send({ type: "ping" }, { targetId: b.id });
+        await new Promise(r => setTimeout(r, 20));
+
+        // c observed the request even though it was addressed to b
+        const seenForeignReq = cObserved.find(m => m.targetId === b.id && m.msgId.startsWith("req:"));
+        expect(seenForeignReq).toBeDefined();
+    });
+});

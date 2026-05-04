@@ -2,6 +2,7 @@ import {
     Bridge,
     TransportType,
     SendMessageOptions,
+    SendEventOptions,
     BridgeActiveTransports,
     OnMessageHandler,
     CreateBridgeParams, TransferableTransportType,
@@ -46,6 +47,7 @@ export const bridgeVersion: string = typeof __BRIDGE_VERSION__ !== `undefined` ?
 export const createBridge
     = <T extends any>(
     {
+        id: explicitId,
         prefix = ``,
         channelName,
         enabled,
@@ -67,7 +69,9 @@ export const createBridge
     let targetWindow: Window | null = target ?? detectChildTarget();
     let onMessageHandler: OnMessageHandler<T> | null = null;
 
-    const id = (prefix ? `${prefix}-` : ``) + Math.random().toString(36).slice(2);
+    // Explicit id wins over the random+prefix combo. Empty string falls through
+    // to the generated id — empty ids would break targeted addressing.
+    const id = explicitId || ((prefix ? `${prefix}-` : ``) + Math.random().toString(36).slice(2));
     const {getState, subscribe, patchState, patchChannelState, incMessageCount} = createBridgeState({
         origin: origin
     });
@@ -209,10 +213,21 @@ export const createBridge
         logger.log(`[bridge:${channelName}] ← ${source} ${message.msgId}`);
 
         notifyObservers(source, {type: `message`, direction: `in`, message});
+
+        // Targeted addressing: drop messages explicitly addressed to a different bridge instance.
+        // Observer above still sees them so devtools can show cross-instance traffic; runtime bookkeeping
+        // (incMessageCount, handlers, pendingStore) skips them.
+        if (message.targetId && message.targetId !== id) return;
+
         incMessageCount(source)
 
-        if (isBridgeResponseMessage(message, channelName) && pendingStore.hasPending(message.responseTo)) {
-            pendingStore.resolvePending(message.responseTo, message.data)
+        if (isBridgeResponseMessage(message, channelName)) {
+            // Late responses (e.g. lost a broadcast race after the first reply already
+            // resolved the request) must be dropped, not routed to the request handler —
+            // otherwise we'd invoke onMessage with response data and reply to a reply.
+            if (pendingStore.hasPending(message.responseTo)) {
+                pendingStore.resolvePending(message.responseTo, message.data);
+            }
             return;
         }
 
@@ -231,7 +246,10 @@ export const createBridge
         }
 
         const response = await messageHandler(message.data as any, source) as MessagePayload<T>;
-        const responseMessage = makeResponseMessage<MessagePayload<T>>(id, message.domain, channelName, response, message.msgId);
+        // Always address responses to the original requester so cross-tab BroadcastChannel
+        // siblings (which would otherwise observe and ignore them at the pendingStore level)
+        // bail out earlier on the targetId filter.
+        const responseMessage = makeResponseMessage<MessagePayload<T>>(id, message.domain, channelName, response, message.msgId, message.sourceId);
         const transport = transports.get(source);
         if (!transport || !transport.isOpen()) {
             logger.warn(`[bridge:${channelName}] Transport ${source} unavailable for response`);
@@ -342,7 +360,7 @@ export const createBridge
         domain: MessageDomain,
         options?: SendMessageOptions
     ) : Promise<T> => {
-        const message = makeRequestMessage<MessagePayload<T>>(id, domain, channelName, data);
+        const message = makeRequestMessage<MessagePayload<T>>(id, domain, channelName, data, options?.targetId);
         const messageKey = domain === `sys`
             ? (msg: BridgeMessage) => msg.msgId
             : opt.resolveMessageKey;
@@ -385,10 +403,11 @@ export const createBridge
 
     const sendEventInternal = async (
         domain: MessageDomain,
-        data: T
+        data: T,
+        options?: SendEventOptions
     ) => {
         if (!isOpen()) throw new Error(`Bridge ${channelName} is not open`);
-        const message = makeEventMessage<T>(id, domain, channelName, data);
+        const message = makeEventMessage<T>(id, domain, channelName, data, options?.targetId);
         for (const type of enabled) {
             const transport = transports.get(type);
             if (!transport || !transport.isOpen()) {
@@ -410,7 +429,7 @@ export const createBridge
     /** Request/response. Resolves with the peer's reply, rejects on timeout/abort. */
     const send = (data: T, options?: SendMessageOptions) => sendInternal(data, `app`, options);
     /** Fire-and-forget event. No reply expected. */
-    const sendEvent = (data: T) => sendEventInternal(`app`, data);
+    const sendEvent = (data: T, options?: SendEventOptions) => sendEventInternal(`app`, data, options);
 
     logger.log(`[bridge] Created channel "${channelName}" id=${id}`);
 

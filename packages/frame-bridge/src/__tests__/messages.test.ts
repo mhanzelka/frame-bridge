@@ -42,9 +42,15 @@ describe("makeRequestMessage", () => {
 describe("makeResponseMessage", () => {
     it("links responseTo the request", () => {
         const req = makeRequestMessage(SOURCE, "app", CHANNEL, {});
-        const res = makeResponseMessage(SOURCE, "app", CHANNEL, { ok: true }, req.msgId);
+        const res = makeResponseMessage(SOURCE, "app", CHANNEL, { ok: true }, req.msgId, req.sourceId);
         expect(res.responseTo).toBe(req.msgId);
         expect(res.msgId).toMatch(/^res:/);
+    });
+
+    it("addresses the response to the original requester via targetId", () => {
+        const req = makeRequestMessage("requester-id", "app", CHANNEL, {});
+        const res = makeResponseMessage(SOURCE, "app", CHANNEL, {}, req.msgId, req.sourceId);
+        expect(res.targetId).toBe("requester-id");
     });
 });
 
@@ -82,7 +88,7 @@ describe("type guards", () => {
     });
 
     it("isBridgeResponseMessage", () => {
-        const res = makeResponseMessage(SOURCE, "app", CHANNEL, {}, "req:abc:123");
+        const res = makeResponseMessage(SOURCE, "app", CHANNEL, {}, "req:abc:123", "requester");
         expect(isBridgeResponseMessage(res, CHANNEL)).toBe(true);
     });
 
@@ -95,7 +101,7 @@ describe("type guards", () => {
 describe("getBridgeMessageType", () => {
     it("returns correct type for each prefix", () => {
         expect(getBridgeMessageType(makeRequestMessage(SOURCE, "app", CHANNEL, {}))).toBe("req");
-        expect(getBridgeMessageType(makeResponseMessage(SOURCE, "app", CHANNEL, {}, "req:x:1"))).toBe("res");
+        expect(getBridgeMessageType(makeResponseMessage(SOURCE, "app", CHANNEL, {}, "req:x:1", "requester"))).toBe("res");
         expect(getBridgeMessageType(makeEventMessage(SOURCE, "app", CHANNEL, {}))).toBe("evt");
     });
 

@@ -28,6 +28,11 @@ export interface BridgeMessage<T extends any = any> {
     msgId: string,
     domain: MessageDomain,
     sourceId: string,
+    // Optional addressing. When set, only the bridge instance whose `id` matches
+    // processes the message; other recipients ignore it. Responses always carry
+    // the original requester's id here, so cross-tab broadcasts of replies
+    // don't leak into unrelated bridges.
+    targetId?: string,
     channelName: string,
     bridgeVersion: string,
     data: T,
@@ -102,15 +107,17 @@ export const getBridgeMessageType = (msg: BridgeMessage<any>): MessageType => {
  * @param domain - Domain of the message (e.g., 'app' or 'sys')
  * @param channelName - Name of the channel the message is sent on
  * @param data - Data payload
+ * @param targetId - Optional bridge instance id the request is addressed to. When omitted, any listener may answer.
  * @returns A BridgeRequestMessage object
  */
 export const makeRequestMessage = <T extends any>(
     sourceId: string,
     domain: MessageDomain,
     channelName: string,
-    data: T
+    data: T,
+    targetId?: string
 ): BridgeRequestMessage<T> => {
-    return {
+    const msg: BridgeRequestMessage<T> = {
         ts: Date.now(),
         domain: domain,
         msgId: generateMessageId(`req`),
@@ -119,6 +126,8 @@ export const makeRequestMessage = <T extends any>(
         bridgeVersion,
         data: data
     }
+    if (targetId !== undefined) msg.targetId = targetId;
+    return msg;
 }
 
 /**
@@ -130,6 +139,8 @@ export const makeRequestMessage = <T extends any>(
  * @param channelName - Name of the channel the message is sent on
  * @param data - Data payload
  * @param responseTo - msgId of the request message being responded to
+ * @param targetId - Bridge instance id the response is addressed to (the original requester's sourceId).
+ *                   Always set so unrelated tabs sharing a BroadcastChannel ignore it.
  * @returns A BridgeResponseMessage object
  */
 export const makeResponseMessage = <T extends any>(
@@ -137,13 +148,15 @@ export const makeResponseMessage = <T extends any>(
     domain: MessageDomain,
     channelName: string,
     data: T,
-    responseTo: string
+    responseTo: string,
+    targetId: string
 ): BridgeResponseMessage<T> => {
     return {
         ts: Date.now(),
         domain: domain,
         msgId: generateMessageId(`res`),
         sourceId,
+        targetId,
         channelName,
         data: data,
         bridgeVersion,
@@ -158,15 +171,17 @@ export const makeResponseMessage = <T extends any>(
  * @param domain - Domain of the message (e.g., 'app' or 'sys')
  * @param channelName - Name of the channel the message is sent on
  * @param data - Data payload
+ * @param targetId - Optional bridge instance id the event is addressed to. When omitted, every listener handles it.
  * @returns A BridgeEventMessage object
  */
 export const makeEventMessage = <T extends any>(
     sourceId: string,
     domain: MessageDomain,
     channelName: string,
-    data: T
+    data: T,
+    targetId?: string
 ): BridgeEventMessage<T> => {
-    return {
+    const msg: BridgeEventMessage<T> = {
         ts: Date.now(),
         domain: domain,
         msgId: generateMessageId(`evt`),
@@ -175,4 +190,6 @@ export const makeEventMessage = <T extends any>(
         bridgeVersion,
         data: data
     }
+    if (targetId !== undefined) msg.targetId = targetId;
+    return msg;
 }
