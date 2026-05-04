@@ -21,6 +21,12 @@ export type BridgeProviderOptions<T extends any> = {
 
 type BridgeProviderProps<T extends any> = {
     open: boolean;
+    /**
+     * Explicit bridge instance id. Replaces the random one — useful for naming
+     * endpoints so peers can address each other deterministically via
+     * `send({ targetId })`. Caller is responsible for uniqueness on the channel.
+     */
+    id?: string;
     prefix?: string;
     channelName: string;
     role: BridgeRole,
@@ -34,9 +40,10 @@ type BridgeProviderProps<T extends any> = {
 export const BridgeContext
     = createContext<BridgeContextProps>({bridge: null});
 
-export const BridgeProvider = <T extends any>({open, prefix, channelName, role, targetOrigin, enabledTransports, options, bridgeOptions, children}: BridgeProviderProps<T>) => {
+export const BridgeProvider = <T extends any>({open, id, prefix, channelName, role, targetOrigin, enabledTransports, options, bridgeOptions, children}: BridgeProviderProps<T>) => {
 
     const bridge = useMemo(() => createBridge<T>({
+        id,
         prefix,
         channelName,
         role,

@@ -36,6 +36,23 @@ describe("BridgeProvider", () => {
         expect(screen.getByTestId("bridge").textContent).toBe("ok");
     });
 
+    it("forwards explicit id to the underlying bridge", () => {
+        let bridge: ReturnType<typeof useBridge> | null = null;
+
+        function Capture() {
+            bridge = useBridge();
+            return null;
+        }
+
+        render(
+            <BridgeProvider id="named-endpoint" open={false} channelName="ch-id" role="parent" enabledTransports={["broadcast-channel"]}>
+                <Capture />
+            </BridgeProvider>
+        );
+
+        expect(bridge!.id).toBe("named-endpoint");
+    });
+
     it("opens the bridge when open=true", async () => {
         let bridge: ReturnType<typeof useBridge> | null = null;
 
