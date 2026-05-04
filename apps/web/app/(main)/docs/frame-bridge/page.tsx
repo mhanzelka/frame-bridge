@@ -23,11 +23,15 @@ const reply = await bridge.send(data, {
     signal: abortController.signal,        // AbortSignal to cancel
     transfer: [arrayBuffer],               // Transferable objects
     preferredTransport: "message-channel", // hint which transport to use
+    targetId: peerBridge.id,               // address a specific bridge instance (see Targeted addressing)
 });`;
 
 const EVENTS = `\
 // Fire-and-forget — no reply expected
 bridge.sendEvent({ type: "user-activity", timestamp: Date.now() });
+
+// Address an event to a specific bridge instance (others ignore it)
+bridge.sendEvent({ type: "focus" }, { targetId: peerBridge.id });
 
 // Register handler for incoming messages
 const unsubscribe = bridge.onMessage(async (msg, source) => {
@@ -36,6 +40,32 @@ const unsubscribe = bridge.onMessage(async (msg, source) => {
 
 // Remove handler later
 unsubscribe();`;
+
+const TARGETED = `\
+// Three tabs share the same BroadcastChannel — without targetId, every listener races
+// to answer a request, only the first reply wins, and other replies leak as warnings.
+//
+// Either let the bridge generate an id (random + optional prefix), or pass an explicit
+// id to name the endpoint. Caller is responsible for keeping ids unique on the channel.
+const lobby = createBridge<Msg>({
+    id: "lobby",                     // deterministic id — peers can target it by name
+    channelName: "rooms",
+    role: "parent",
+    enabled: ["broadcast-channel"],
+});
+await lobby.open();
+console.log(lobby.id); // "lobby"
+
+// Send addressed only to a specific peer — others see the message in their observer
+// (handy for devtools) but skip the onMessage handler entirely.
+const reply = await lobby.send({ type: "ping" }, { targetId: "room-42" });
+
+// Targeted event — only the addressed bridge handles it. Omit targetId to broadcast.
+lobby.sendEvent({ type: "focus" }, { targetId: "room-42" });
+
+// Responses are always addressed back to the original requester, so unrelated tabs
+// sharing the BroadcastChannel ignore them at the filter layer (no pendingStore lookup,
+// no handler invocation).`;
 
 const CROSS_ORIGIN = `\
 // parent.ts — host page
@@ -101,15 +131,16 @@ const createBridgeParams = [
     { name: "enabled", type: "TransportType[]", description: 'Which transports to use: "broadcast-channel", "post-message-channel", "message-channel".' },
     { name: "targetOrigin", type: "string", description: 'Required for "post-message-channel". Use "same-origin" for same-origin targets.' },
     { name: "target", type: "Window?", description: 'Target window for "post-message-channel". Optional in child contexts — auto-detects window.parent (iframe) or window.opener (popup). Parent contexts pass it explicitly (or via setTarget when the iframe mounts).' },
-    { name: "prefix", type: "string", description: "Optional prefix for the generated bridge ID." },
+    { name: "id", type: "string", description: "Explicit bridge instance id used as-is — replaces the random one. Useful for naming endpoints so peers can address each other deterministically via options.targetId. Caller is responsible for uniqueness within the same channelName. Ignores prefix when set." },
+    { name: "prefix", type: "string", description: "Optional prefix for the generated bridge ID. Ignored when id is set." },
     { name: "options.resolveMessageKey", type: "(msg) => string", description: "Custom key used in timeout error messages." },
 ];
 
 const bridgeMethods = [
     { name: "open()", type: "Promise<void>", description: "Open all enabled transports." },
     { name: "close()", type: "void", description: "Close all transports, reject pending requests." },
-    { name: "send(data, options?)", type: "Promise<T>", description: "Send a request and await the response." },
-    { name: "sendEvent(data)", type: "void", description: "Fire-and-forget — no response expected." },
+    { name: "send(data, options?)", type: "Promise<T>", description: "Send a request and await the response. Pass options.targetId to address a specific bridge instance." },
+    { name: "sendEvent(data, options?)", type: "void", description: "Fire-and-forget — no response expected. Pass options.targetId to address a specific bridge instance instead of broadcasting." },
     { name: "onMessage(handler)", type: "() => void", description: "Register incoming message handler. Returns unsubscribe function." },
     { name: "isOpen()", type: "boolean", description: "True if at least one transport is open." },
     { name: "active()", type: "BridgeActiveTransports", description: "Lists currently enabled and open transports." },
@@ -154,6 +185,34 @@ const FrameBridgePage = () => (
         <section className="mb-12">
             <h2 className="mb-4 text-xl font-semibold text-zinc-100">Events and handlers</h2>
             <CodeBlock code={EVENTS} lang="ts" />
+        </section>
+
+        <section className="mb-12">
+            <h2 className="mb-4 text-xl font-semibold text-zinc-100">Targeted addressing</h2>
+            <p className="mb-4 text-zinc-400">
+                Each bridge has a per-instance{" "}
+                <code className="font-mono text-sm text-blue-300">id</code> exposed on the returned object.
+                Pass it as <code className="font-mono text-sm text-blue-300">targetId</code> to{" "}
+                <code className="font-mono text-sm">send()</code> or{" "}
+                <code className="font-mono text-sm">sendEvent()</code> to address a specific peer.
+                Bridges with a different id ignore the message at the handler layer
+                (observers still see it for debugging).
+            </p>
+            <p className="mb-4 text-zinc-400">
+                Mostly relevant on <code className="font-mono text-sm text-blue-300">broadcast-channel</code>,
+                where three or more tabs share the same channel — without addressing, every listener races
+                to answer the same request. Responses are always addressed back to the original requester,
+                so unrelated tabs drop them early.
+            </p>
+            <CodeBlock code={TARGETED} lang="ts" />
+            <div className="mt-4">
+                <Note>
+                    Without an explicit <code className="font-mono text-sm">id</code>, the bridge generates a
+                    random one on every <code className="font-mono text-sm">createBridge()</code> call — per-instance,
+                    not stable across reloads. Pass <code className="font-mono text-sm">id</code> to name the endpoint
+                    deterministically (peers can then target it by name without a discovery handshake).
+                </Note>
+            </div>
         </section>
 
         <section className="mb-12">
