@@ -187,7 +187,7 @@ const FrameBridgePage = () => (
             <CodeBlock code={EVENTS} lang="ts" />
         </section>
 
-        <section className="mb-12">
+        <section id="targeted-addressing" className="mb-12">
             <h2 className="mb-4 text-xl font-semibold text-zinc-100">Targeted addressing</h2>
             <p className="mb-4 text-zinc-400">
                 Each bridge has a per-instance{" "}

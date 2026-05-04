@@ -90,6 +90,30 @@ function OpenPopupButton() {
     );
 }`;
 
+const NAMED_ENDPOINTS = `\
+// Each side sets its own deterministic id. Peers can then address each other
+// directly via send({ targetId }) — no discovery handshake needed.
+function Lobby() {
+    return (
+        <BridgeProvider<Messages>
+            id="lobby"
+            open={true}
+            channelName="rooms"
+            role="parent"
+            enabledTransports={["broadcast-channel"]}
+        >
+            <Controls />
+        </BridgeProvider>
+    );
+}
+
+function Controls() {
+    const bridge = useBridge<Messages>();
+    const ping = () =>
+        bridge.send({ type: "ping", value: 1 }, { targetId: "room-42" });
+    return <button onClick={ping}>Ping room-42</button>;
+}`;
+
 const ON_MESSAGE = `\
 function Handler() {
     const bridge = useBridge<Messages>();
@@ -110,7 +134,8 @@ const providerProps = [
     { name: "role", type: '"parent" | "child"', description: "Role of this side." },
     { name: "enabledTransports", type: "TransportType[]", default: '["post-message-channel"]', description: "Which transports to use." },
     { name: "targetOrigin", type: "string", description: 'Required for "post-message-channel".' },
-    { name: "prefix", type: "string", description: "Optional prefix for the bridge ID." },
+    { name: "id", type: "string", description: "Explicit bridge instance id used as-is — replaces the random one. Useful for naming endpoints so peers can address each other deterministically via send({ targetId }). Caller is responsible for uniqueness within the same channelName. Ignores prefix when set." },
+    { name: "prefix", type: "string", description: "Optional prefix for the generated bridge ID. Ignored when id is set." },
     { name: "options.observer", type: "(event) => void", description: 'Called for every message sent/received. Event carries direction: "in" | "out" and transportType for filtering/logging.' },
     { name: "bridgeOptions", type: "CreateBridgeOptions", description: "Advanced options passed to createBridge." },
 ];
@@ -160,6 +185,22 @@ const ReactFrameBridgePage = () => (
                 <CodeBlock code={PROVIDER_EXAMPLE} lang="tsx" />
             </div>
             <ApiTable rows={providerProps} />
+        </section>
+
+        <section className="mb-12">
+            <h2 className="mb-4 text-xl font-semibold text-zinc-100">Named endpoints</h2>
+            <p className="mb-4 text-zinc-400">
+                Pass <code className="font-mono text-sm text-blue-300">id</code> to give each provider a
+                deterministic name. Peers then address each other via{" "}
+                <code className="font-mono text-sm">send(data, &#123; targetId &#125;)</code> without a discovery handshake.
+                Mostly relevant on <code className="font-mono text-sm text-blue-300">broadcast-channel</code> with three or
+                more peers — see the{" "}
+                <a href="/docs/frame-bridge#targeted-addressing" className="text-blue-400 hover:underline">
+                    Targeted addressing
+                </a>{" "}
+                section in the core docs for details.
+            </p>
+            <CodeBlock code={NAMED_ENDPOINTS} lang="tsx" />
         </section>
 
         <section className="mb-12">
