@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type MockInstance } from "vitest";
 import { render, act, fireEvent, waitFor } from "@testing-library/react";
 import { BridgeProvider } from "@/bridge/BridgeProvider";
 import { IframeBridgeHost } from "@/bridge/IframeBridgeHost";
@@ -27,7 +27,7 @@ describe("IframeBridgeHost", () => {
     });
 
     it("calls setTarget on the bridge when iframe mounts", () => {
-        let setTarget: ReturnType<typeof vi.fn> | null = null;
+        let setTarget: MockInstance | null = null;
 
         function SpySetTarget() {
             const bridge = useBridge();
@@ -46,7 +46,7 @@ describe("IframeBridgeHost", () => {
     });
 
     it("calls setTarget(null) when iframe unmounts", () => {
-        let setTarget: ReturnType<typeof vi.fn> | null = null;
+        let setTarget: MockInstance | null = null;
 
         function SpySetTarget() {
             const bridge = useBridge();
@@ -69,7 +69,7 @@ describe("IframeBridgeHost", () => {
     });
 
     it("fires onChildReady after iframe load when waitForReady resolves", async () => {
-        let waitForReadySpy: ReturnType<typeof vi.fn> | null = null;
+        let waitForReadySpy: MockInstance | null = null;
 
         function SpyWaitForReady() {
             const bridge = useBridge();
@@ -118,7 +118,7 @@ describe("IframeBridgeHost", () => {
     });
 
     it("does not call waitForReady when no ready callback is provided", async () => {
-        let waitForReadySpy: ReturnType<typeof vi.fn> | null = null;
+        let waitForReadySpy: MockInstance | null = null;
 
         function SpyWaitForReady() {
             const bridge = useBridge();
