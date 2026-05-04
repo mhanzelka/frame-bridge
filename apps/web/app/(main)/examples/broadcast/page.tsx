@@ -40,11 +40,16 @@ const BroadcastDemoPage = () => (
             The child panel is a real <code className="font-mono text-xs">{"<iframe>"}</code> at{" "}
             <code className="font-mono text-xs">/iframe/broadcast-child</code>. Send a ping from the parent
             and watch the response arrive in both logs and the DevTools below.
+            <br />
+            Use <strong>Open new window</strong> to spawn extra child instances and the{" "}
+            <strong>target</strong> dropdown to address one specific child by its{" "}
+            <code className="font-mono text-xs">bridge.id</code> — others will see the request in their
+            observer but ignore it at the handler.
         </Note>
 
         {/* Live demo */}
-        <div className="mt-6 grid h-80 gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-blue-900/50 bg-zinc-900 p-5">
+        <div className="mt-6 grid h-96 gap-4 lg:grid-cols-2">
+            <div className="h-full overflow-hidden rounded-xl border border-blue-900/50 bg-zinc-900 p-5">
                 <BroadcastParent />
             </div>
             <iframe
