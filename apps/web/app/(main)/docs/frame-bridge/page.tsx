@@ -128,7 +128,7 @@ await openBridgeWindow({
 const createBridgeParams = [
     { name: "channelName", type: "string", description: "Must match on both sides." },
     { name: "role", type: '"parent" | "child"', description: "Each side picks a role. For MessageChannel, parent initiates." },
-    { name: "enabled", type: "TransportType[]", description: 'Which transports to use: "broadcast-channel", "post-message-channel", "message-channel".' },
+    { name: "enabled", type: "TransportType[]", description: 'Which transports to use: "broadcast-channel", "post-message-channel", "message-channel". Order matters — the first listed transport that is open becomes the default for send/sendEvent (override per-call via options.preferredTransport).' },
     { name: "targetOrigin", type: "string", description: 'Required for "post-message-channel". Use "same-origin" for same-origin targets.' },
     { name: "target", type: "Window?", description: 'Target window for "post-message-channel". Optional in child contexts — auto-detects window.parent (iframe) or window.opener (popup). Parent contexts pass it explicitly (or via setTarget when the iframe mounts).' },
     { name: "id", type: "string", description: "Explicit bridge instance id used as-is — replaces the random one. Useful for naming endpoints so peers can address each other deterministically via options.targetId. Caller is responsible for uniqueness within the same channelName. Ignores prefix when set." },
