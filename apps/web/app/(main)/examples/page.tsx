@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Radio, MessageSquare } from "lucide-react";
+import { ArrowRight, Radio, MessageSquare, Zap } from "lucide-react";
 
 const examples = [
     {
@@ -18,6 +18,15 @@ const examples = [
         description:
             "Parent page and child iframe communicating via window.postMessage. Point-to-point: the parent holds a direct reference to the iframe's contentWindow.",
         tags: ["point-to-point", "cross-frame", "IframeBridgeHost"],
+        badge: "Interactive",
+    },
+    {
+        href: "/examples/messagechannel",
+        icon: Zap,
+        title: "MessageChannel",
+        description:
+            "Parent and child iframe connected via a transferred MessagePort. Lowest latency, supports zero-copy ArrayBuffer transfer. After a one-shot handshake over postMessage, traffic flows on a dedicated port pair.",
+        tags: ["dedicated-port", "low-latency", "transferables"],
         badge: "Interactive",
     },
 ];
