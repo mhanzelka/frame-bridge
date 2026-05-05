@@ -83,7 +83,7 @@ const ParentControls = () => {
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 font-mono text-xs">
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950 p-3 font-mono text-xs">
                 {log.length === 0 && (
                     <p className="text-zinc-600">Press "Send ping" to start</p>
                 )}
@@ -119,7 +119,7 @@ const DemoArea = ({ origin }: DemoAreaProps) => (
         targetOrigin={origin}
     >
         <div className="grid h-80 gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-blue-900/50 bg-zinc-900 p-5">
+            <div className="h-full overflow-hidden rounded-xl border border-blue-900/50 bg-zinc-900 p-5">
                 <ParentControls />
             </div>
             <IframeBridgeHost

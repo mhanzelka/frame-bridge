@@ -94,7 +94,7 @@ const ChildInner = () => {
                 Auto-replying with <span className="font-mono text-purple-400">value × 2</span>
             </p>
 
-            <div className="flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 p-3 font-mono text-xs">
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900 p-3 font-mono text-xs">
                 {log.length === 0 && <p className="text-zinc-600">Waiting for pings…</p>}
                 {log.map(e => (
                     <div
