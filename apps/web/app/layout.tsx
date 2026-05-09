@@ -11,6 +11,13 @@ type RootLayoutProps = { children: React.ReactNode };
 
 const RootLayout = ({ children }: RootLayoutProps) => (
     <html lang="en">
+        <head>
+            <script
+                defer
+                src="https://analytics.ares.miroslavhanzelka.cz/script.js"
+                data-website-id="b9e743e9-1ecb-47cb-815c-f1496a39166a"
+            />
+        </head>
         <body className="bg-zinc-950 text-zinc-100 antialiased">
             {children}
         </body>
